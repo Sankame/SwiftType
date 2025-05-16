@@ -1,0 +1,60 @@
+[package]
+name = "swifttype"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name"]
+description = "A text expansion tool similar to PhraseExpress"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+# Windows APIアクセス用
+windows = { version = "0.48", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_System_Com", "implement"] }
+# 設定ファイル操作用
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# GUIフレームワーク
+eframe = { version = "0.22", features = ["persistence"] }
+egui = "0.22"
+# winapiの必要な機能を有効化
+winapi = { version = "0.3", features = ["winuser", "windef"] }
+# 日付操作用
+chrono = "0.4"
+# ログ出力用
+log = "0.4"
+env_logger = "0.10"
+# システムトレイ
+tray-icon = "0.5"
+# クリップボード操作
+arboard = "3.2"
+# 正規表現
+regex = "1.9"
+# ファイルパス
+dirs = "5.0"
+# 画像処理
+image = "0.24"
+# スレッド間通信
+crossbeam-channel = "0.5"
+# シングルトンパターン実装用
+once_cell = "1.18"
+
+[dev-dependencies]
+# テスト用
+mockall = "0.11"
+rstest = "0.18"
+temp-dir = "0.1"
+
+[lib]
+name = "swifttype"
+path = "src/lib.rs"
+
+[[bin]]
+name = "swifttype"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort" 

@@ -1,0 +1,87 @@
+# Rust関連
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# ビルド関連
+/debug/
+/release/
+/bin/
+/temp/
+/tmp/
+
+# IDEの設定
+/.idea/
+/.vscode/
+/.fleet/
+/.atom/
+/.eclipse/
+/.settings/
+/.project
+/.classpath
+/.factorypath
+*.sublime-workspace
+*.sublime-project
+*.iml
+
+# エディタのバックアップ/テンポラリファイル
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+.DS_Store
+
+# Windows関連
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS関連
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.AppleDB
+.AppleDesktop
+.apdisk
+
+# Linux関連
+.directory
+.Trash-*
+
+# アプリケーション固有
+/assets/temp/
+/logs/
+*.log
+config.json
+/settings/local.json
+
+# SwiftType特有の設定ファイル
+swifttype.cfg
+*.swst
+
+# バイナリファイル
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 環境変数
+.env
+.env.*
+!.env.example
+
+# クラッシュレポート
+*.stackdump
+*.dump 
