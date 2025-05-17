@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 use eframe;
+use std::sync::atomic::{AtomicBool, Ordering};
+use once_cell::sync::Lazy;
 
 use crate::config::ConfigManager;
 use crate::keyboard::{KeyboardHook, KeyboardState};
@@ -7,6 +9,11 @@ use crate::replacement::ReplacementEngine;
 use crate::ui::app_ui::{AppUi, AppUiState};
 use crate::ui::tray::TrayIconState;
 use crate::utils;
+
+// 競合ツール検出時の警告表示フラグ
+static SHOW_CONFLICT_WARNING: AtomicBool = AtomicBool::new(false);
+// 検出された競合ツールの名前
+static CONFLICTING_TOOL_NAMES: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 /// アプリケーション本体
 pub struct App {
@@ -20,7 +27,18 @@ pub struct App {
 
 impl App {
     /// アプリケーションを初期化する
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Result<Self, Box<dyn std::error::Error>> {
+        // 競合するツールをチェック
+        let conflicting_tools = utils::check_conflicting_tools();
+        if !conflicting_tools.is_empty() {
+            // 競合するツールが見つかった場合の警告メッセージを設定
+            log::warn!("Conflicting text expansion tools found: {:?}", conflicting_tools);
+            
+            // 初期化後、最初のフレーム更新で警告を表示するためのフラグをセット
+            SHOW_CONFLICT_WARNING.store(true, std::sync::atomic::Ordering::SeqCst);
+            CONFLICTING_TOOL_NAMES.lock().unwrap().extend(conflicting_tools);
+        }
+        
         // 設定を読み込む
         let config_manager = Arc::new(Mutex::new(ConfigManager::new()?));
         
@@ -77,6 +95,37 @@ impl App {
 impl eframe::App for App {
     /// フレームを更新する
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // 競合ツールの警告を表示
+        if SHOW_CONFLICT_WARNING.load(Ordering::SeqCst) {
+            if let Ok(conflicting_tools) = CONFLICTING_TOOL_NAMES.lock() {
+                if !conflicting_tools.is_empty() {
+                    // 警告ダイアログを表示
+                    egui::Window::new("Warning: Conflicting Tools Detected")
+                        .collapsible(false)
+                        .resizable(false)
+                        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                        .show(ctx, |ui| {
+                            ui.label("The following text expansion tools are currently running:");
+                            ui.spacing();
+                            
+                            for tool in conflicting_tools.iter() {
+                                ui.label(format!("• {}", tool));
+                            }
+                            
+                            ui.spacing();
+                            ui.label("Running multiple text expansion tools simultaneously may cause conflicts and unexpected behavior.");
+                            ui.label("It is recommended to close these applications before using SwiftType.");
+                            
+                            ui.spacing();
+                            if ui.button("Understood").clicked() {
+                                // 警告を閉じる
+                                SHOW_CONFLICT_WARNING.store(false, Ordering::SeqCst);
+                            }
+                        });
+                }
+            }
+        }
+        
         // トレイアイコンのイベントを処理
         if let Some(tray_state) = &mut self.tray_state {
             tray_state.process_events();
