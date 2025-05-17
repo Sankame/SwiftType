@@ -77,43 +77,43 @@ impl Default for Settings {
         
         // 日付のスニペットを追加
         snippets.push(Snippet::new(
-            "今日の日付 (YYYY/MM/DD)".to_string(),
+            "Today's Date (YYYY/MM/DD)".to_string(),
             "ddate".to_string(),
             "yyyy/MM/dd".to_string(), // 直接日付フォーマットを指定
             SnippetType::Dynamic,
-            "日付".to_string(),
+            "Date".to_string(),
         ));
         
         snippets.push(Snippet::new(
-            "今日の日付 (YYYYMMDD)".to_string(),
+            "Today's Date (YYYYMMDD)".to_string(),
             "yyyymmdd".to_string(),
             "yyyyMMdd".to_string(), // 直接日付フォーマットを指定
             SnippetType::Dynamic,
-            "日付".to_string(),
+            "Date".to_string(),
         ));
         
         snippets.push(Snippet::new(
-            "現在時刻".to_string(),
+            "Current Time".to_string(),
             "ttime".to_string(),
             "HH:mm:ss".to_string(), // 直接時刻フォーマットを指定
             SnippetType::Dynamic,
-            "時間".to_string(),
+            "Time".to_string(),
         ));
         
         snippets.push(Snippet::new(
-            "タイムスタンプ".to_string(),
+            "Timestamp".to_string(),
             "tstamp".to_string(),
             "yyyy-MM-dd HH:mm:ss".to_string(), // 直接タイムスタンプフォーマットを指定
             SnippetType::Dynamic,
-            "日付".to_string(),
+            "Date".to_string(),
         ));
         
         snippets.push(Snippet::new(
-            "Signature".to_string(),
+            "Email Signature".to_string(),
             "sig".to_string(),
             "Best regards,\n\nJohn Doe\nEmail: example@example.com\nPhone: 555-123-4567".to_string(),
             SnippetType::Static,
-            "Template".to_string(),
+            "Templates".to_string(),
         ));
         
         Self {
