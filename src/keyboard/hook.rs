@@ -122,16 +122,30 @@ fn process_key_event(
                     if let Some(replacement) = engine.check_for_replacements(&keyword) {
                         log::debug!("Found replacement: '{}' for keyword: '{}'", replacement, keyword);
                         
-                        // 置換が成功したらバッファをクリア (明示的に置換処理の前にクリア)
+                        // バッファをクリア (検出されたキーワードを消去)
+                        // 注: これにより連続的な置換を防止する
                         state.clear_buffer();
                         
-                        // 置換の前に一時的にフックを解除することも検討する（再帰的なイベント処理を防ぐため）
+                        // ここでmutexをドロップして、置換処理中に他のキー入力が処理できるようにする
+                        drop(state);
+                        drop(engine);
                         
-                        // 置換実行 - バックスペースは置換エンジンで行うため、ここではキーワードの長さを渡す
-                        if engine.perform_replacement_with_backspace(&replacement, keyword.len()) {
-                            log::debug!("Successfully replaced '{}' with '{}'", keyword, replacement);
-                        } else {
-                            log::error!("Failed to replace '{}' with '{}'", keyword, replacement);
+                        // 再度エンジンを取得して置換実行
+                        if let Ok(engine) = replacement_engine.lock() {
+                            // 置換実行 - 改良されたバックスペースとペースト処理を使用
+                            if engine.perform_replacement_with_backspace(&replacement, keyword.len()) {
+                                log::debug!("Successfully replaced '{}' with '{}'", keyword, replacement);
+                            } else {
+                                log::error!("Failed to replace '{}' with '{}'", keyword, replacement);
+                                
+                                // 置換が失敗した場合、キーボード状態を明示的にリセット
+                                if let Ok(mut state) = keyboard_state.lock() {
+                                    state.clear_buffer();
+                                }
+                                
+                                // モディファイアキーをリセットして、キーボードを正常な状態に戻す
+                                engine.reset_modifier_keys();
+                            }
                         }
                     }
                 }
