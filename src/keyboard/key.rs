@@ -14,7 +14,7 @@ impl Key {
         match self.0 {
             0x08 => None, // バックスペース
             0x09 => None, // タブ
-            0x0D => None, // エンター
+            0x0D => Some('\n'), // エンター（改行として扱う）
             0x1B => None, // ESC
             0x20 => Some(' '), // スペース
             

@@ -73,8 +73,9 @@ impl ReplacementEngine {
         // キーワード削除前にログ記録
         log::debug!("Replacing keyword (length: {}) with text: '{}'", keyword_length, text);
         
-        // バックスペース処理の前に少し長めに待機（キーボードバッファが安定するのを待つ）
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        // バックスペース処理の前に少し待機（キーボードバッファが安定するのを待つ）
+        // 安定性のため100msに戻す
+        std::thread::sleep(std::time::Duration::from_millis(100));
         
         // キーワードを削除（キーワードの長さに基づいてバックスペース）
         if !self.simulate_backspace(keyword_length) {
@@ -82,14 +83,33 @@ impl ReplacementEngine {
             return false;
         }
         
-        // バックスペースとクリップボード操作の間に十分な遅延を設ける
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        // バックスペースとクリップボード操作の間に遅延を設ける
+        // 安定性のため150msに調整
+        std::thread::sleep(std::time::Duration::from_millis(150));
         
         // クリップボードにテキストを設定
         if let Ok(mut clipboard) = Clipboard::new() {
+            log::debug!("Setting clipboard text: '{}'", text);
             if let Err(e) = clipboard.set_text(text) {
                 log::error!("Failed to set clipboard text: {}", e);
                 return false;
+            }
+            
+            // クリップボード設定後に少し待機
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            
+            // CTRL+Vで貼り付ける前にもう一度クリップボードの内容を確認
+            match clipboard.get_text() {
+                Ok(clipboard_text) => {
+                    if clipboard_text != text {
+                        log::error!("Clipboard text mismatch: expected '{}', got '{}'", text, clipboard_text);
+                        // それでも続行
+                    }
+                },
+                Err(e) => {
+                    log::warn!("Could not verify clipboard text: {}", e);
+                    // エラーでも続行
+                }
             }
             
             // CTRL+Vで貼り付ける
@@ -99,8 +119,10 @@ impl ReplacementEngine {
             }
             
             // 操作完了後に少し待機
-            std::thread::sleep(std::time::Duration::from_millis(200));
+            // 安定性のため100msに調整
+            std::thread::sleep(std::time::Duration::from_millis(100));
             
+            log::debug!("Replacement completed successfully: '{}'", text);
             true
         } else {
             log::error!("Failed to access clipboard");
@@ -132,11 +154,12 @@ impl ReplacementEngine {
         log::debug!("Simulating {} backspaces", count);
         
         // バックスペース処理前に少し待機
-        thread::sleep(Duration::from_millis(100));
+        // 安定性のため60msに調整
+        thread::sleep(Duration::from_millis(60));
         
         let mut success = true;
         
-        // 各バックスペースを個別に送信し、遅延を挟む
+        // 安定性向上のため、各バックスペースを個別に送信
         for i in 0..count {
             // バックスペースキーを押す
             let mut key_down: INPUT = unsafe { std::mem::zeroed() };
@@ -165,34 +188,35 @@ impl ReplacementEngine {
                 SendInput(&[key_down], std::mem::size_of::<INPUT>() as i32)
             };
             
-            if sent_down == 0 {
+            if sent_down != 1 {
                 log::error!("Failed to send backspace key down event for backspace {}", i + 1);
                 success = false;
             }
             
-            // 短い遅延
-            thread::sleep(Duration::from_millis(40));
+            // 短い遅延 (30ms)
+            thread::sleep(Duration::from_millis(30));
             
             // バックスペースを解放
             let sent_up = unsafe {
                 SendInput(&[key_up], std::mem::size_of::<INPUT>() as i32)
             };
             
-            if sent_up == 0 {
+            if sent_up != 1 {
                 log::error!("Failed to send backspace key up event for backspace {}", i + 1);
                 success = false;
             }
             
-            // 次のバックスペース前に少し長めの遅延
-            thread::sleep(Duration::from_millis(60));
+            // 次のバックスペース前に少し待機 (40ms)
+            thread::sleep(Duration::from_millis(40));
             
             log::debug!("Sent backspace {} of {}", i + 1, count);
         }
         
         log::debug!("Completed sending {} backspace events, success: {}", count, success);
         
-        // 最後の操作後に十分待機して、システムが処理する時間を与える
-        thread::sleep(Duration::from_millis(200));
+        // 最後の操作後に待機して、システムが処理する時間を与える
+        // 安定性のため100msに調整
+        thread::sleep(Duration::from_millis(100));
         
         success
     }
@@ -207,10 +231,11 @@ impl ReplacementEngine {
         
         log::debug!("Simulating paste operation (CTRL+V)");
         
-        // バックスペース処理の後に十分待機してから貼り付け処理を実行
-        thread::sleep(Duration::from_millis(300));
+        // バックスペース処理の後に少し待機してから貼り付け処理を実行
+        // 安定性のため120msに調整
+        thread::sleep(Duration::from_millis(120));
         
-        // すべての入力を個別に送信し、状態を確認
+        // 個別キー送信に戻して安定性を確保
         let mut success = true;
         
         // CTRL キーを押す
@@ -228,12 +253,13 @@ impl ReplacementEngine {
             SendInput(&[ctrl_down], std::mem::size_of::<INPUT>() as i32)
         };
         
-        if sent_ctrl_down == 0 {
+        if sent_ctrl_down != 1 {
             log::error!("Failed to send CTRL key down event");
             success = false;
         }
         
-        thread::sleep(Duration::from_millis(60));
+        // 安定化のため少し待機
+        thread::sleep(Duration::from_millis(50));
         
         // V キーを押す
         let mut v_down: INPUT = unsafe { std::mem::zeroed() };
@@ -250,12 +276,13 @@ impl ReplacementEngine {
             SendInput(&[v_down], std::mem::size_of::<INPUT>() as i32)
         };
         
-        if sent_v_down == 0 {
+        if sent_v_down != 1 {
             log::error!("Failed to send V key down event");
             success = false;
         }
         
-        thread::sleep(Duration::from_millis(60));
+        // 安定化のため少し待機
+        thread::sleep(Duration::from_millis(50));
         
         // V キーを離す
         let mut v_up: INPUT = unsafe { std::mem::zeroed() };
@@ -272,12 +299,13 @@ impl ReplacementEngine {
             SendInput(&[v_up], std::mem::size_of::<INPUT>() as i32)
         };
         
-        if sent_v_up == 0 {
+        if sent_v_up != 1 {
             log::error!("Failed to send V key up event");
             success = false;
         }
         
-        thread::sleep(Duration::from_millis(60));
+        // 安定化のため少し待機
+        thread::sleep(Duration::from_millis(50));
         
         // CTRL キーを離す
         let mut ctrl_up: INPUT = unsafe { std::mem::zeroed() };
@@ -294,12 +322,13 @@ impl ReplacementEngine {
             SendInput(&[ctrl_up], std::mem::size_of::<INPUT>() as i32)
         };
         
-        if sent_ctrl_up == 0 {
+        if sent_ctrl_up != 1 {
             log::error!("Failed to send CTRL key up event");
             success = false;
         }
         
-        thread::sleep(Duration::from_millis(60));
+        // クリップボード操作後に少し待機
+        thread::sleep(Duration::from_millis(80));
         
         log::debug!("Paste operation completed: {}", if success { "success" } else { "failed" });
         

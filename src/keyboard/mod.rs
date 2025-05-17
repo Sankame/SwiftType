@@ -55,6 +55,13 @@ impl KeyboardState {
     
     /// バッファに文字を追加する
     pub fn add_char(&mut self, c: char) {
+        // 改行文字の場合はバッファをクリアする
+        if c == '\n' || c == '\r' {
+            log::debug!("Newline detected, clearing buffer");
+            self.clear_buffer();
+            return;
+        }
+        
         self.buffer.push(c);
         
         // バッファサイズを制限
