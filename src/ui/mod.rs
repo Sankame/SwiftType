@@ -1,12 +1,9 @@
 pub mod app_ui;
-pub mod snippet_editor;
 pub mod settings_view;
+pub mod snippet_editor;
 pub mod tray;
 
 use egui::{Context, Visuals};
-use std::sync::{Arc, Mutex};
-
-use crate::config::Settings;
 
 /// UI関連の定数
 pub mod constants {

@@ -27,7 +27,7 @@ pub struct App {
 
 impl App {
     /// アプリケーションを初期化する
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Result<Self, Box<dyn std::error::Error>> {
         // 競合するツールをチェック
         let conflicting_tools = utils::check_conflicting_tools();
         if !conflicting_tools.is_empty() {
@@ -89,6 +89,7 @@ impl App {
     }
     
     /// 自動起動の設定を更新する
+    #[allow(dead_code)]
     pub fn update_auto_startup(&self) -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(settings) = self.ui.settings().lock() {
             utils::set_auto_startup(settings.start_with_system)?;

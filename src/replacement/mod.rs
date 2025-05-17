@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use arboard::Clipboard;
 
 use crate::config::Settings;
-use crate::config::settings::{Snippet, SnippetType};
+use crate::config::settings::SnippetType;
 use formatter::format_dynamic_content;
 
 /// テキスト置換エンジン
@@ -60,6 +60,7 @@ impl ReplacementEngine {
     /// 
     /// # 戻り値
     /// 置換が成功したかどうか
+    #[allow(dead_code)]
     pub fn try_replace(&mut self, buffer: &str) -> bool {
         if let Some(replacement) = self.check_for_replacements(buffer) {
             self.perform_replacement_with_backspace(&replacement, replacement.len())
@@ -638,8 +639,10 @@ impl ReplacementEngine {
     }
     
     /// 置換を実行する
+    /// 
+    /// 注: このメソッドは簡易的なラッパーで、内部的に perform_replacement_with_backspace を呼び出します
+    #[allow(dead_code)]
     pub fn perform_replacement(&self, text: &str) -> bool {
-        // 注: このメソッドは互換性のために残しますが、キーワードを正しく削除するには
         // perform_replacement_with_backspaceを使用することを推奨します
         self.perform_replacement_with_backspace(text, text.len())
     }
