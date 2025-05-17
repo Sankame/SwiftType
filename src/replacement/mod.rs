@@ -73,11 +73,17 @@ impl ReplacementEngine {
         // キーワード削除前にログ記録
         log::debug!("Replacing keyword (length: {}) with text: '{}'", keyword_length, text);
         
+        // バックスペース処理の前に少し長めに待機（キーボードバッファが安定するのを待つ）
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        
         // キーワードを削除（キーワードの長さに基づいてバックスペース）
-        self.simulate_backspace(keyword_length);
+        if !self.simulate_backspace(keyword_length) {
+            log::error!("Failed to simulate backspace for keyword of length {}", keyword_length);
+            return false;
+        }
         
         // バックスペースとクリップボード操作の間に十分な遅延を設ける
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(300));
         
         // クリップボードにテキストを設定
         if let Ok(mut clipboard) = Clipboard::new() {
@@ -87,7 +93,14 @@ impl ReplacementEngine {
             }
             
             // CTRL+Vで貼り付ける
-            self.simulate_paste();
+            if !self.simulate_paste() {
+                log::error!("Failed to simulate paste operation");
+                return false;
+            }
+            
+            // 操作完了後に少し待機
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            
             true
         } else {
             log::error!("Failed to access clipboard");
@@ -103,23 +116,28 @@ impl ReplacementEngine {
     }
     
     /// バックスペースキーを自動で入力する
-    fn simulate_backspace(&self, count: usize) {
+    fn simulate_backspace(&self, count: usize) -> bool {
         use windows::Win32::UI::Input::KeyboardAndMouse::{
             INPUT, INPUT_KEYBOARD, KEYBDINPUT, SendInput, KEYEVENTF_KEYUP, VK_BACK,
         };
         use std::thread;
         use std::time::Duration;
         
+        if count == 0 {
+            log::debug!("No backspaces to simulate");
+            return true; // 削除するものがなければ成功と見なす
+        }
+        
         // バックスペース数をログに記録（デバッグ用）
         log::debug!("Simulating {} backspaces", count);
         
         // バックスペース処理前に少し待機
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(100));
         
-        // 各バックスペースキー入力に対して2つの入力イベント（押下と解放）が必要
-        let mut inputs: Vec<INPUT> = Vec::with_capacity(count * 2);
+        let mut success = true;
         
-        for _ in 0..count {
+        // 各バックスペースを個別に送信し、遅延を挟む
+        for i in 0..count {
             // バックスペースキーを押す
             let mut key_down: INPUT = unsafe { std::mem::zeroed() };
             key_down.r#type = INPUT_KEYBOARD;
@@ -142,52 +160,63 @@ impl ReplacementEngine {
                 dwExtraInfo: 0,
             };
             
-            inputs.push(key_down);
-            inputs.push(key_up);
-        }
-        
-        // 入力イベントを送信（各キー入力の間に短い遅延を入れる）
-        for i in (0..inputs.len()).step_by(2) {
-            if i + 1 < inputs.len() {
-                unsafe {
-                    // バックスペースを押下
-                    SendInput(&inputs[i..i+1], std::mem::size_of::<INPUT>() as i32);
-                    // 短い遅延を長くする
-                    thread::sleep(Duration::from_millis(20));
-                    // バックスペースを解放
-                    SendInput(&inputs[i+1..i+2], std::mem::size_of::<INPUT>() as i32);
-                    // 少し長めの遅延をさらに長くする
-                    thread::sleep(Duration::from_millis(30));
-                }
+            // バックスペースを押下
+            let sent_down = unsafe {
+                SendInput(&[key_down], std::mem::size_of::<INPUT>() as i32)
+            };
+            
+            if sent_down == 0 {
+                log::error!("Failed to send backspace key down event for backspace {}", i + 1);
+                success = false;
             }
+            
+            // 短い遅延
+            thread::sleep(Duration::from_millis(40));
+            
+            // バックスペースを解放
+            let sent_up = unsafe {
+                SendInput(&[key_up], std::mem::size_of::<INPUT>() as i32)
+            };
+            
+            if sent_up == 0 {
+                log::error!("Failed to send backspace key up event for backspace {}", i + 1);
+                success = false;
+            }
+            
+            // 次のバックスペース前に少し長めの遅延
+            thread::sleep(Duration::from_millis(60));
+            
+            log::debug!("Sent backspace {} of {}", i + 1, count);
         }
         
-        log::debug!("Completed sending {} backspace events", count);
+        log::debug!("Completed sending {} backspace events, success: {}", count, success);
         
-        // 最後の操作後に少し待機して、システムが処理する時間を与える
-        thread::sleep(Duration::from_millis(100));
+        // 最後の操作後に十分待機して、システムが処理する時間を与える
+        thread::sleep(Duration::from_millis(200));
+        
+        success
     }
 
     /// テキスト入力のシミュレーション (CTRL+V)
-    fn simulate_paste(&self) {
+    fn simulate_paste(&self) -> bool {
         use windows::Win32::UI::Input::KeyboardAndMouse::{
-            INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, SendInput, KEYEVENTF_KEYUP, VK_CONTROL, VK_V,
+            INPUT, INPUT_KEYBOARD, KEYBDINPUT, SendInput, KEYEVENTF_KEYUP, VK_CONTROL, VK_V,
         };
-        use windows::Win32::Foundation::HWND;
         use std::thread;
         use std::time::Duration;
         
         log::debug!("Simulating paste operation (CTRL+V)");
         
-        // バックスペース処理の後に少し待機してから貼り付け処理を実行
-        thread::sleep(Duration::from_millis(150));
+        // バックスペース処理の後に十分待機してから貼り付け処理を実行
+        thread::sleep(Duration::from_millis(300));
         
-        // 入力イベントの配列を作成
-        let mut inputs: [INPUT; 4] = unsafe { std::mem::zeroed() };
+        // すべての入力を個別に送信し、状態を確認
+        let mut success = true;
         
         // CTRL キーを押す
-        inputs[0].r#type = INPUT_KEYBOARD;
-        inputs[0].Anonymous.ki = KEYBDINPUT {
+        let mut ctrl_down: INPUT = unsafe { std::mem::zeroed() };
+        ctrl_down.r#type = INPUT_KEYBOARD;
+        ctrl_down.Anonymous.ki = KEYBDINPUT {
             wVk: VK_CONTROL,
             wScan: 0,
             dwFlags: Default::default(),
@@ -195,54 +224,85 @@ impl ReplacementEngine {
             dwExtraInfo: 0,
         };
         
-        // V キーを押す
-        inputs[1].r#type = INPUT_KEYBOARD;
-        inputs[1].Anonymous.ki = KEYBDINPUT {
-            wVk: VK_V,
-            wScan: 0,
-            dwFlags: Default::default(),
-            time: 0,
-            dwExtraInfo: 0,
+        let sent_ctrl_down = unsafe {
+            SendInput(&[ctrl_down], std::mem::size_of::<INPUT>() as i32)
         };
         
-        // V キーを離す
-        inputs[2].r#type = INPUT_KEYBOARD;
-        inputs[2].Anonymous.ki = KEYBDINPUT {
-            wVk: VK_V,
-            wScan: 0,
-            dwFlags: KEYEVENTF_KEYUP,
-            time: 0,
-            dwExtraInfo: 0,
-        };
-        
-        // CTRL キーを離す
-        inputs[3].r#type = INPUT_KEYBOARD;
-        inputs[3].Anonymous.ki = KEYBDINPUT {
-            wVk: VK_CONTROL,
-            wScan: 0,
-            dwFlags: KEYEVENTF_KEYUP,
-            time: 0,
-            dwExtraInfo: 0,
-        };
-        
-        // 入力イベントを送信（遅延を加える）
-        unsafe {
-            // CTRL キーを押す
-            SendInput(&inputs[0..1], std::mem::size_of::<INPUT>() as i32);
-            thread::sleep(Duration::from_millis(20));
-            
-            // V キーを押す
-            SendInput(&inputs[1..2], std::mem::size_of::<INPUT>() as i32);
-            thread::sleep(Duration::from_millis(20));
-            
-            // V キーを離す
-            SendInput(&inputs[2..3], std::mem::size_of::<INPUT>() as i32);
-            thread::sleep(Duration::from_millis(20));
-            
-            // CTRL キーを離す
-            SendInput(&inputs[3..4], std::mem::size_of::<INPUT>() as i32);
+        if sent_ctrl_down == 0 {
+            log::error!("Failed to send CTRL key down event");
+            success = false;
         }
         
-        log::debug!("Paste operation completed");
+        thread::sleep(Duration::from_millis(60));
+        
+        // V キーを押す
+        let mut v_down: INPUT = unsafe { std::mem::zeroed() };
+        v_down.r#type = INPUT_KEYBOARD;
+        v_down.Anonymous.ki = KEYBDINPUT {
+            wVk: VK_V,
+            wScan: 0,
+            dwFlags: Default::default(),
+            time: 0,
+            dwExtraInfo: 0,
+        };
+        
+        let sent_v_down = unsafe {
+            SendInput(&[v_down], std::mem::size_of::<INPUT>() as i32)
+        };
+        
+        if sent_v_down == 0 {
+            log::error!("Failed to send V key down event");
+            success = false;
+        }
+        
+        thread::sleep(Duration::from_millis(60));
+        
+        // V キーを離す
+        let mut v_up: INPUT = unsafe { std::mem::zeroed() };
+        v_up.r#type = INPUT_KEYBOARD;
+        v_up.Anonymous.ki = KEYBDINPUT {
+            wVk: VK_V,
+            wScan: 0,
+            dwFlags: KEYEVENTF_KEYUP,
+            time: 0,
+            dwExtraInfo: 0,
+        };
+        
+        let sent_v_up = unsafe {
+            SendInput(&[v_up], std::mem::size_of::<INPUT>() as i32)
+        };
+        
+        if sent_v_up == 0 {
+            log::error!("Failed to send V key up event");
+            success = false;
+        }
+        
+        thread::sleep(Duration::from_millis(60));
+        
+        // CTRL キーを離す
+        let mut ctrl_up: INPUT = unsafe { std::mem::zeroed() };
+        ctrl_up.r#type = INPUT_KEYBOARD;
+        ctrl_up.Anonymous.ki = KEYBDINPUT {
+            wVk: VK_CONTROL,
+            wScan: 0,
+            dwFlags: KEYEVENTF_KEYUP,
+            time: 0,
+            dwExtraInfo: 0,
+        };
+        
+        let sent_ctrl_up = unsafe {
+            SendInput(&[ctrl_up], std::mem::size_of::<INPUT>() as i32)
+        };
+        
+        if sent_ctrl_up == 0 {
+            log::error!("Failed to send CTRL key up event");
+            success = false;
+        }
+        
+        thread::sleep(Duration::from_millis(60));
+        
+        log::debug!("Paste operation completed: {}", if success { "success" } else { "failed" });
+        
+        success
     }
 } 
