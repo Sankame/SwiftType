@@ -49,6 +49,11 @@ impl App {
             Arc::new(Mutex::new(settings))
         };
         
+        // 自動起動の設定を適用
+        if let Ok(settings_guard) = settings.lock() {
+            utils::set_auto_startup(settings_guard.start_with_system)?;
+        }
+        
         // キーボード状態を作成
         let keyboard_state = Arc::new(Mutex::new(KeyboardState::new(100)));
         

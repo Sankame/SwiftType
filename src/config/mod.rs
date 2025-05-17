@@ -72,8 +72,25 @@ impl ConfigManager {
     /// 設定を保存する
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let serialized = serde_json::to_string_pretty(&self.settings)?;
-        std::fs::write(&self.config_path, serialized)?;
-        Ok(())
+        
+        // 親ディレクトリが存在することを確認
+        if let Some(parent) = self.config_path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)?;
+            }
+        }
+        
+        // ファイルに書き込み
+        match std::fs::write(&self.config_path, serialized) {
+            Ok(()) => {
+                log::debug!("Settings saved successfully to {:?}", self.config_path);
+                Ok(())
+            },
+            Err(e) => {
+                log::error!("Failed to save settings to {:?}: {}", self.config_path, e);
+                Err(Box::new(e))
+            }
+        }
     }
     
     /// 設定ディレクトリのパスを取得する
