@@ -55,7 +55,15 @@ impl KeyboardState {
     
     /// バッファに文字を追加する
     pub fn add_char(&mut self, c: char) {
+        // 改行文字の場合はバッファをクリアする
+        if c == '\n' || c == '\r' {
+            log::debug!("Newline detected, clearing buffer");
+            self.clear_buffer();
+            return;
+        }
+        
         self.buffer.push(c);
+        log::trace!("Added character '{}' to buffer, current buffer: '{}'", c, self.get_keyword_candidate());
         
         // バッファサイズを制限
         if self.buffer.len() > self.buffer_size {
@@ -90,6 +98,7 @@ impl KeyboardState {
         if buffer_slice == keyword {
             // キーワードをバッファから削除
             self.buffer.truncate(start_index);
+            log::debug!("Keyword '{}' matched and removed from buffer", keyword);
             true
         } else {
             false
@@ -104,6 +113,12 @@ impl KeyboardState {
     /// 現在のキーワード候補を取得する
     pub fn get_keyword_candidate(&self) -> String {
         self.buffer.iter().collect()
+    }
+    
+    /// キーワードが検出され置換された場合、バッファをクリアする
+    pub fn keyword_replaced(&mut self) {
+        log::debug!("Keyword replacement completed, clearing buffer");
+        self.clear_buffer();
     }
 }
 

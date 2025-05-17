@@ -16,24 +16,33 @@ fn date_pattern() -> &'static Regex {
 /// # 戻り値
 /// フォーマット済みの文字列
 pub fn format_dynamic_content(template: &str) -> String {
+    log::debug!("Formatting dynamic content with template: '{}'", template);
+    
     // yyyy/MM/ddのようなパターンが直接指定されている場合は日付として処理
     if template.contains("yyyy") || template.contains("MM") || template.contains("dd") ||
        template.contains("HH") || template.contains("mm") || template.contains("ss") {
-        return format_date(template);
+        let result = format_date(template);
+        log::debug!("Formatted date template '{}' to '{}'", template, result);
+        return result;
     }
     
     let mut result = template.to_string();
     
     // {date:...}パターンの置換
     if template.contains("{date:") {
-        if let Some(date_re) = date_pattern().is_match(template).then(|| date_pattern()) {
-            result = date_re.replace_all(&result, |caps: &regex::Captures| {
-                let format = &caps[1];
-                format_date(format)
-            }).to_string();
-        }
+        log::debug!("Template contains date pattern tags");
+        let date_re = date_pattern();
+        
+        result = date_re.replace_all(&result, |caps: &regex::Captures| {
+            let format = &caps[1];
+            log::debug!("Formatting date pattern: '{}'", format);
+            format_date(format)
+        }).to_string();
+        
+        log::debug!("Replaced date patterns in template: '{}' -> '{}'", template, result);
     }
     
+    log::debug!("Final formatted output: '{}'", result);
     result
 }
 
@@ -51,7 +60,11 @@ fn format_date(format: &str) -> String {
         .replace("mm", "%M")
         .replace("ss", "%S");
     
-    now.format(&chrono_format).to_string()
+    log::debug!("Converting format '{}' to chrono format '{}'", format, chrono_format);
+    let result = now.format(&chrono_format).to_string();
+    log::debug!("Formatted date: '{}'", result);
+    
+    result
 }
 
 #[cfg(test)]

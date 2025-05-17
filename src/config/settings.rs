@@ -75,7 +75,7 @@ impl Default for Settings {
     fn default() -> Self {
         let mut snippets = Vec::new();
         
-        // 日付のスニペットを追加（英語表記に修正）
+        // 日付のスニペットを追加
         snippets.push(Snippet::new(
             "Today's Date (YYYY/MM/DD)".to_string(),
             "ddate".to_string(),
@@ -109,11 +109,11 @@ impl Default for Settings {
         ));
         
         snippets.push(Snippet::new(
-            "Signature".to_string(),
+            "Email Signature".to_string(),
             "sig".to_string(),
             "Best regards,\n\nJohn Doe\nEmail: example@example.com\nPhone: 555-123-4567".to_string(),
             SnippetType::Static,
-            "Template".to_string(),
+            "Templates".to_string(),
         ));
         
         Self {

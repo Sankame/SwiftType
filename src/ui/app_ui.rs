@@ -5,6 +5,7 @@ use crate::config::{ConfigManager, Settings};
 use crate::keyboard::KeyboardState;
 use crate::replacement::ReplacementEngine;
 use super::{ThemeMode, constants, settings_view, snippet_editor};
+use crate::utils;
 
 /// アプリケーションのUI状態
 #[derive(Debug)]
@@ -241,6 +242,11 @@ impl AppUi {
                 if let Ok(mut config_manager) = self.state.config_manager.lock() {
                     if let Ok(settings) = self.state.settings.lock() {
                         let _ = config_manager.update_settings(settings.clone());
+                        
+                        // 自動起動の設定を変更した場合は、自動起動を設定
+                        if startup_changed {
+                            let _ = utils::set_auto_startup(start_with_system);
+                        }
                     }
                 }
             }

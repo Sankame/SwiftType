@@ -15,8 +15,9 @@ Rustで実装された高機能テキスト置換ツール。ショートカッ�
 ### 必要なツール
 
 1. Rust (https://www.rust-lang.org/tools/install)
+
 2. ビルドツール(https://visualstudio.microsoft.com/ja/visual-cpp-build-tools/)
-    + 「C++によるデスクトップ開発」のみ（Visual Studio Build Tools）
+    + 「C++によるデスクトップ開発」(Visual Studio Build Tools)のみ選択。
 
 ### プロジェクトのビルド
 

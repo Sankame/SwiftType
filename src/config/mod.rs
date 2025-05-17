@@ -20,9 +20,31 @@ impl ConfigManager {
         std::fs::create_dir_all(&config_dir)?;
         
         let config_path = config_dir.join("settings.json");
-        let settings = if config_path.exists() {
+        let mut settings = if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)?;
-            serde_json::from_str(&content)?
+            let mut loaded_settings: Settings = serde_json::from_str(&content)?;
+            
+            // 既存の日本語タイトルやカテゴリを英語に変換
+            for snippet in &mut loaded_settings.snippets {
+                // 日本語タイトルを英語に変換
+                match snippet.name.as_str() {
+                    "今日の日付 (YYYY/MM/DD)" => snippet.name = "Today's Date (YYYY/MM/DD)".to_string(),
+                    "今日の日付 (YYYYMMDD)" => snippet.name = "Today's Date (YYYYMMDD)".to_string(),
+                    "現在時刻" => snippet.name = "Current Time".to_string(),
+                    "タイムスタンプ" => snippet.name = "Timestamp".to_string(),
+                    _ => {}
+                }
+                
+                // 日本語カテゴリを英語に変換
+                match snippet.category.as_str() {
+                    "日付" => snippet.category = "Date".to_string(),
+                    "時間" => snippet.category = "Time".to_string(),
+                    "テンプレート" => snippet.category = "Templates".to_string(),
+                    _ => {}
+                }
+            }
+            
+            loaded_settings
         } else {
             let default_settings = Settings::default();
             let serialized = serde_json::to_string_pretty(&default_settings)?;
@@ -50,8 +72,25 @@ impl ConfigManager {
     /// 設定を保存する
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let serialized = serde_json::to_string_pretty(&self.settings)?;
-        std::fs::write(&self.config_path, serialized)?;
-        Ok(())
+        
+        // 親ディレクトリが存在することを確認
+        if let Some(parent) = self.config_path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)?;
+            }
+        }
+        
+        // ファイルに書き込み
+        match std::fs::write(&self.config_path, serialized) {
+            Ok(()) => {
+                log::debug!("Settings saved successfully to {:?}", self.config_path);
+                Ok(())
+            },
+            Err(e) => {
+                log::error!("Failed to save settings to {:?}: {}", self.config_path, e);
+                Err(Box::new(e))
+            }
+        }
     }
     
     /// 設定ディレクトリのパスを取得する
