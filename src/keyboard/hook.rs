@@ -118,12 +118,21 @@ fn process_key_event(
                 
                 // キーワードが見つかれば置換
                 if !keyword.is_empty() {
+                    log::debug!("Checking for replacement with keyword: '{}'", keyword);
                     if let Some(replacement) = engine.check_for_replacements(&keyword) {
+                        log::debug!("Found replacement: '{}' for keyword: '{}'", replacement, keyword);
+                        
                         // 置換が成功したらバッファをクリア (明示的に置換処理の前にクリア)
                         state.clear_buffer();
                         
+                        // 置換の前に一時的にフックを解除することも検討する（再帰的なイベント処理を防ぐため）
+                        
                         // 置換実行 - バックスペースは置換エンジンで行うため、ここではキーワードの長さを渡す
-                        engine.perform_replacement_with_backspace(&replacement, keyword.len());
+                        if engine.perform_replacement_with_backspace(&replacement, keyword.len()) {
+                            log::debug!("Successfully replaced '{}' with '{}'", keyword, replacement);
+                        } else {
+                            log::error!("Failed to replace '{}' with '{}'", keyword, replacement);
+                        }
                     }
                 }
             }

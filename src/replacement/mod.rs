@@ -70,8 +70,14 @@ impl ReplacementEngine {
     
     /// 置換を実行する（キーワードの長さを指定してバックスペース）
     pub fn perform_replacement_with_backspace(&self, text: &str, keyword_length: usize) -> bool {
+        // キーワード削除前にログ記録
+        log::debug!("Replacing keyword (length: {}) with text: '{}'", keyword_length, text);
+        
         // キーワードを削除（キーワードの長さに基づいてバックスペース）
         self.simulate_backspace(keyword_length);
+        
+        // バックスペースとクリップボード操作の間に十分な遅延を設ける
+        std::thread::sleep(std::time::Duration::from_millis(100));
         
         // クリップボードにテキストを設定
         if let Ok(mut clipboard) = Clipboard::new() {
@@ -106,6 +112,9 @@ impl ReplacementEngine {
         
         // バックスペース数をログに記録（デバッグ用）
         log::debug!("Simulating {} backspaces", count);
+        
+        // バックスペース処理前に少し待機
+        thread::sleep(Duration::from_millis(50));
         
         // 各バックスペースキー入力に対して2つの入力イベント（押下と解放）が必要
         let mut inputs: Vec<INPUT> = Vec::with_capacity(count * 2);
@@ -143,12 +152,12 @@ impl ReplacementEngine {
                 unsafe {
                     // バックスペースを押下
                     SendInput(&inputs[i..i+1], std::mem::size_of::<INPUT>() as i32);
-                    // 短い遅延
-                    thread::sleep(Duration::from_millis(10));
+                    // 短い遅延を長くする
+                    thread::sleep(Duration::from_millis(20));
                     // バックスペースを解放
                     SendInput(&inputs[i+1..i+2], std::mem::size_of::<INPUT>() as i32);
-                    // 少し長めの遅延
-                    thread::sleep(Duration::from_millis(20));
+                    // 少し長めの遅延をさらに長くする
+                    thread::sleep(Duration::from_millis(30));
                 }
             }
         }
@@ -156,7 +165,7 @@ impl ReplacementEngine {
         log::debug!("Completed sending {} backspace events", count);
         
         // 最後の操作後に少し待機して、システムが処理する時間を与える
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(100));
     }
 
     /// テキスト入力のシミュレーション (CTRL+V)
@@ -171,7 +180,7 @@ impl ReplacementEngine {
         log::debug!("Simulating paste operation (CTRL+V)");
         
         // バックスペース処理の後に少し待機してから貼り付け処理を実行
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(150));
         
         // 入力イベントの配列を作成
         let mut inputs: [INPUT; 4] = unsafe { std::mem::zeroed() };
