@@ -333,7 +333,7 @@ impl ReplacementEngine {
         
         log::debug!("Simulating direct char input for: '{}'", text);
         
-        // IMEの状態確認は条件付きでコンパイル
+        // IMEの状態確認
         #[cfg(feature = "Win32_UI_Input_Ime")]
         let ime_active = self.check_ime_status();
         #[cfg(not(feature = "Win32_UI_Input_Ime"))]
@@ -421,6 +421,8 @@ impl ReplacementEngine {
     fn check_ime_status(&self) -> bool {
         use windows::Win32::UI::Input::Ime::{ImmGetContext, ImmGetOpenStatus};
         use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+        use windows::Win32::Globalization::HIMC;
+        use windows::Win32::Foundation::BOOL;
         
         unsafe {
             let hwnd = GetForegroundWindow();
@@ -432,9 +434,9 @@ impl ReplacementEngine {
             }
             
             let is_open = ImmGetOpenStatus(himc);
-            log::debug!("IME status: {}", is_open);
+            log::debug!("IME status: {:?}", is_open);
             
-            is_open
+            is_open.into()
         }
     }
     
@@ -443,6 +445,8 @@ impl ReplacementEngine {
     fn toggle_ime(&self, enable: bool) -> bool {
         use windows::Win32::UI::Input::Ime::{ImmGetContext, ImmSetOpenStatus};
         use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+        use windows::Win32::Globalization::HIMC;
+        use windows::Win32::Foundation::BOOL;
         
         unsafe {
             let hwnd = GetForegroundWindow();
@@ -454,9 +458,9 @@ impl ReplacementEngine {
             }
             
             let result = ImmSetOpenStatus(himc, enable);
-            log::debug!("Set IME status to {}: {}", enable, result);
+            log::debug!("Set IME status to {}: {:?}", enable, result);
             
-            result
+            result.into()
         }
     }
     
