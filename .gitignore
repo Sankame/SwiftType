@@ -85,3 +85,7 @@ swifttype.cfg
 # クラッシュレポート
 *.stackdump
 *.dump 
+
+# Amazon Q Developer関連
+.amazon-q.json
+INSTRUCTIONS.md
