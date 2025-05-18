@@ -174,8 +174,8 @@ impl ReplacementEngine {
         // 高リスクの長さに対する特別処理
         let is_high_risk_length = count >= 5 && count <= 9;
         
-        // バックスペース処理前の待機時間 (高リスクの場合は長く)
-        let initial_wait = if is_high_risk_length { 100 } else { 80 };
+        // バックスペース処理前の待機時間を短縮 (高リスクの場合でも短く)
+        let initial_wait = if is_high_risk_length { 50 } else { 40 };
         thread::sleep(Duration::from_millis(initial_wait));
         
         let mut success = true;
@@ -214,8 +214,8 @@ impl ReplacementEngine {
                 success = false;
             }
             
-            // キーの押下を確実に処理してもらうための待機時間
-            thread::sleep(Duration::from_millis(30));
+            // キーの押下を確実に処理してもらうための待機時間を短縮
+            thread::sleep(Duration::from_millis(15));
             
             // バックスペースを解放
             let sent_up = unsafe {
@@ -227,15 +227,15 @@ impl ReplacementEngine {
                 success = false;
             }
             
-            // 次のバックスペース前の待機時間
-            let wait_time = 40;
+            // 次のバックスペース前の待機時間を短縮
+            let wait_time = 20;
             thread::sleep(Duration::from_millis(wait_time));
         }
         
         log::debug!("Completed sending {} backspace events, success: {}", count, success);
         
-        // 最後の操作後に長めに待機して、システムが処理する時間を与える
-        let final_wait = if is_high_risk_length { 180 } else if count > 5 { 150 } else { 120 };
+        // 最後の操作後の待機時間を短縮
+        let final_wait = if is_high_risk_length { 100 } else if count > 5 { 80 } else { 60 };
         thread::sleep(Duration::from_millis(final_wait));
         
         success
