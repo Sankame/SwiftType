@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use crate::config::{ConfigManager, Settings};
 use crate::keyboard::KeyboardState;
 use crate::replacement::ReplacementEngine;
-use super::{ThemeMode, constants, settings_view, snippet_editor};
+use super::{ThemeMode, constants, snippet_editor};
 use crate::utils;
 
 /// アプリケーションのUI状態
@@ -15,8 +15,10 @@ pub struct AppUiState {
     /// アプリケーションの設定
     pub settings: Arc<Mutex<Settings>>,
     /// キーボードの状態
+    #[allow(dead_code)]
     pub keyboard_state: Arc<Mutex<KeyboardState>>,
     /// テキスト置換エンジン
+    #[allow(dead_code)]
     pub replacement_engine: Arc<Mutex<ReplacementEngine>>,
     /// テーマモード
     pub theme: ThemeMode,
@@ -79,6 +81,7 @@ impl AppUi {
     }
     
     /// 設定へのアクセスを提供する
+    #[allow(dead_code)]
     pub fn settings(&self) -> &Arc<Mutex<Settings>> {
         &self.state.settings
     }

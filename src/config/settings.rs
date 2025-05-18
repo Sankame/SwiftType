@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// スニペットの種類
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

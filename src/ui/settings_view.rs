@@ -1,5 +1,6 @@
 use egui::{self, Ui};
-use std::sync::{Arc, Mutex};
+// 未使用のインポートを削除
+// use std::sync::{Arc, Mutex};
 
 use crate::config::{ConfigManager, Settings};
 
@@ -12,6 +13,7 @@ use crate::config::{ConfigManager, Settings};
 /// 
 /// # 戻り値
 /// 設定が変更されたかどうか
+#[allow(dead_code)]
 pub fn render_settings_view(
     ui: &mut Ui,
     settings: &mut Settings,
@@ -58,6 +60,7 @@ pub fn render_settings_view(
 }
 
 /// ホットキーエディタを描画する
+#[allow(dead_code)]
 fn render_hotkey_editor(ui: &mut Ui, hotkey: &mut Option<crate::config::settings::Hotkey>) -> bool {
     let mut changed = false;
     

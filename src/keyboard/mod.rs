@@ -5,9 +5,6 @@ pub use hook::KeyboardHook;
 pub use key::Key;
 
 use std::sync::{Arc, Mutex};
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN,
-};
 
 /// キーボード状態の共有参照型
 pub type SharedKeyboardState = Arc<Mutex<KeyboardState>>;
@@ -84,6 +81,7 @@ impl KeyboardState {
     /// 
     /// # 戻り値
     /// 置換が成功したかどうか
+    #[allow(dead_code)]
     pub fn replace_keyword(&mut self, keyword: &str, _replacement: &str) -> bool {
         // バッファから特定のキーワードを削除する
         let keyword_len = keyword.chars().count();
@@ -106,6 +104,7 @@ impl KeyboardState {
     }
     
     /// バッファの内容を取得する
+    #[allow(dead_code)]
     pub fn get_buffer(&self) -> String {
         self.buffer.iter().collect()
     }
@@ -116,32 +115,9 @@ impl KeyboardState {
     }
     
     /// キーワードが検出され置換された場合、バッファをクリアする
+    #[allow(dead_code)]
     pub fn keyword_replaced(&mut self) {
         log::debug!("Keyword replacement completed, clearing buffer");
         self.clear_buffer();
     }
-}
-
-/// 現在押されている修飾キーを検出する
-pub fn get_modifiers() -> u32 {
-    let mut modifiers = 0;
-    
-    // 安全でないコードを使用するため、unsafeブロックで囲む
-    unsafe {
-        if GetAsyncKeyState(VK_CONTROL.0 as i32) & 0x8000u16 as i16 != 0 {
-            modifiers |= 1; // CTRL
-        }
-        if GetAsyncKeyState(VK_MENU.0 as i32) & 0x8000u16 as i16 != 0 {
-            modifiers |= 2; // ALT
-        }
-        if GetAsyncKeyState(VK_SHIFT.0 as i32) & 0x8000u16 as i16 != 0 {
-            modifiers |= 4; // SHIFT
-        }
-        if GetAsyncKeyState(VK_LWIN.0 as i32) & 0x8000u16 as i16 != 0 || 
-           GetAsyncKeyState(VK_RWIN.0 as i32) & 0x8000u16 as i16 != 0 {
-            modifiers |= 8; // WIN
-        }
-    }
-    
-    modifiers
 } 

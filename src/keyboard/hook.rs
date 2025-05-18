@@ -119,7 +119,7 @@ fn process_key_event(
                 // キーワードが見つかれば置換
                 if !keyword.is_empty() {
                     log::debug!("Checking for replacement with keyword: '{}'", keyword);
-                    if let Some(replacement) = engine.check_for_replacements(&keyword) {
+                    if let Some((replacement, keyword_length)) = engine.check_for_replacements(&keyword) {
                         log::debug!("Found replacement: '{}' for keyword: '{}'", replacement, keyword);
                         
                         // バッファをクリア (検出されたキーワードを消去)
@@ -133,7 +133,8 @@ fn process_key_event(
                         // 再度エンジンを取得して置換実行
                         if let Ok(engine) = replacement_engine.lock() {
                             // 置換実行 - 改良されたバックスペースとペースト処理を使用
-                            if engine.perform_replacement_with_backspace(&replacement, keyword.len()) {
+                            // キーワードの長さを正確に使用
+                            if engine.perform_replacement_with_backspace(&replacement, keyword_length) {
                                 log::debug!("Successfully replaced '{}' with '{}'", keyword, replacement);
                             } else {
                                 log::error!("Failed to replace '{}' with '{}'", keyword, replacement);
@@ -152,4 +153,4 @@ fn process_key_event(
             }
         }
     }
-} 
+}

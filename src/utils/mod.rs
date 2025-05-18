@@ -36,7 +36,7 @@ pub fn check_conflicting_tools() -> Vec<String> {
     use windows::Win32::System::ProcessStatus::EnumProcesses;
     use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
     use windows::Win32::System::ProcessStatus::GetModuleBaseNameW;
-    use windows::Win32::Foundation::{HANDLE, CloseHandle, BOOL};
+    use windows::Win32::Foundation::CloseHandle;
     
     let mut found_tools = Vec::new();
     

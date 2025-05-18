@@ -1,7 +1,5 @@
 pub mod settings;
 
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub use settings::Settings;
@@ -20,7 +18,7 @@ impl ConfigManager {
         std::fs::create_dir_all(&config_dir)?;
         
         let config_path = config_dir.join("settings.json");
-        let mut settings = if config_path.exists() {
+        let settings = if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)?;
             let mut loaded_settings: Settings = serde_json::from_str(&content)?;
             
