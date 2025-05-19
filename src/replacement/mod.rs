@@ -33,8 +33,35 @@ impl ReplacementEngine {
             
             // 有効なスニペットだけを検索
             for snippet in settings.snippets.iter().filter(|s| s.enabled) {
+                // まず元のキーワードで直接比較
                 if buffer.ends_with(&snippet.keyword) {
-                    log::debug!("Found matching keyword: '{}' for snippet: '{}'", 
+                    log::debug!("Found matching keyword (direct): '{}' for snippet: '{}'", 
+                               snippet.keyword, snippet.name);
+                    
+                    let replacement = match snippet.snippet_type {
+                        SnippetType::Static => snippet.content.clone(),
+                        SnippetType::Dynamic => {
+                            let result = format_dynamic_content(&snippet.content);
+                            log::debug!("Formatted dynamic content: '{}' -> '{}'", 
+                                       snippet.content, result);
+                            result
+                        }
+                    };
+                    
+                    // キーワードの長さを返す（正確なバックスペース数のため）
+                    return Some((replacement, snippet.keyword.len()));
+                }
+                
+                // 元の比較で見つからない場合のみ、正規化して比較
+                let normalized_buffer = buffer.replace('=', "_")
+                                             .replace(';', "_")
+                                             .replace(',', "_");
+                let normalized_keyword = snippet.keyword.replace('=', "_")
+                                                      .replace(';', "_")
+                                                      .replace(',', "_");
+                
+                if normalized_buffer.ends_with(&normalized_keyword) {
+                    log::debug!("Found matching keyword (normalized): '{}' for snippet: '{}'", 
                                snippet.keyword, snippet.name);
                     
                     let replacement = match snippet.snippet_type {
@@ -77,83 +104,124 @@ impl ReplacementEngine {
         // キーワード削除前にログ記録
         log::debug!("Replacing keyword (length: {}) with text: '{}'", keyword_length, text);
         
-        // 高リスクの長さに対する特別処理 (5-9文字)
-        // このサイズ範囲は特に問題が発生しやすい
-        let is_high_risk_length = keyword_length >= 5 && keyword_length <= 9;
+        // 安全のため、キーワード長に上限を設ける
+        let safe_length = std::cmp::min(keyword_length, 20); // 最大20文字に制限
+        if safe_length < keyword_length {
+            log::warn!("Limiting keyword length from {} to {}", keyword_length, safe_length);
+        }
         
-        // バックスペース処理の前に少し長く待機（キーボードバッファが安定するのを待つ）
-        // 高リスクの長さの場合、より長く待機
+        // 高リスクの長さに対する特別処理 (5-9文字)
+        let is_high_risk_length = safe_length >= 5 && safe_length <= 9;
+        
+        // バックスペース処理の前に少し待機
         let pre_backspace_wait = if is_high_risk_length { 300 } else { 200 };
         thread::sleep(Duration::from_millis(pre_backspace_wait));
         
-        // キーワードを削除（キーワードの長さに基づいてバックスペース）
-        // タイミングの問題で一行上に移動する問題があるため、
-        // 長さに基づいて適切なバックスペース回数を決定
-        let adjusted_length = keyword_length;
+        // 例外処理を追加
+        let backspace_result = std::panic::catch_unwind(|| {
+            // キーワードを削除（キーワードの長さに基づいてバックスペース）
+            if !self.simulate_backspace(safe_length) {
+                log::error!("Failed to simulate backspace for keyword of length {}", safe_length);
+                return false;
+            }
+            true
+        });
         
-        if !self.simulate_backspace(adjusted_length) {
-            log::error!("Failed to simulate backspace for keyword of length {}", adjusted_length);
+        // パニックが発生した場合は失敗として扱う
+        let backspace_success = match backspace_result {
+            Ok(success) => success,
+            Err(_) => {
+                log::error!("Panic occurred during backspace operation");
+                false
+            }
+        };
+        
+        if !backspace_success {
             return false;
         }
         
         log::debug!("Backspace operation completed successfully, waiting before text input operation");
         
         // バックスペースと入力操作の間の遅延
-        // 長いキーワードの場合は待機時間を長く
-        let wait_time = if keyword_length > 7 { 400 } else { 300 };
+        let wait_time = if safe_length > 7 { 400 } else { 300 };
         thread::sleep(Duration::from_millis(wait_time));
         
         // テキストが短い場合は直接文字入力を試みる (より高い成功率)
         if text.len() <= 50 {
             log::debug!("Attempting direct text input for text: '{}'", text);
             
-            // 改良された直接文字入力メソッドを使用（日本語文字にも対応）
-            let direct_input_result = self.simulate_direct_char_input(text);
-            
-            if direct_input_result {
-                log::debug!("Direct text input completed successfully");
-                return true;
-            }
-            
-            log::warn!("Direct text input failed, falling back to clipboard method");
-        }
-        
-        // クリップボードにテキストを設定
-        if let Ok(mut clipboard) = Clipboard::new() {
-            // 既存のクリップボード内容を保存（あとで復元するため）
-            let original_clipboard = clipboard.get_text().ok();
-            
-            log::debug!("Setting clipboard text: '{}'", text);
-            if let Err(e) = clipboard.set_text(text) {
-                log::error!("Failed to set clipboard text: {}", e);
-                return false;
-            }
-            
-            // クリップボード設定後に少し待機
-            thread::sleep(Duration::from_millis(150));
-            
-            // CTRL+Vで貼り付ける
-            let paste_result = self.simulate_paste_simple();
-            
-            if !paste_result {
-                log::error!("Failed to simulate paste operation");
+            // 例外処理を追加
+            let input_result = std::panic::catch_unwind(|| {
+                // 改良された直接文字入力メソッドを使用（日本語文字にも対応）
+                let direct_input_result = self.simulate_direct_char_input(text);
                 
-                // クリップボードを元の状態に戻す (エラー無視)
-                if let Some(original_text) = original_clipboard {
-                    let _ = clipboard.set_text(&original_text);
+                if direct_input_result {
+                    log::debug!("Direct text input completed successfully");
+                    return true;
                 }
                 
+                log::warn!("Direct text input failed, falling back to clipboard method");
+                false
+            });
+            
+            // 直接入力が成功した場合は終了
+            match input_result {
+                Ok(true) => return true,
+                Ok(false) => {}, // クリップボード方式にフォールバック
+                Err(_) => {
+                    log::error!("Panic occurred during direct text input");
+                    // クリップボード方式にフォールバック
+                }
+            }
+        }
+        
+        // クリップボード操作を例外処理で囲む
+        let clipboard_result = std::panic::catch_unwind(|| {
+            // クリップボードにテキストを設定
+            if let Ok(mut clipboard) = Clipboard::new() {
+                // 既存のクリップボード内容を保存（あとで復元するため）
+                let original_clipboard = clipboard.get_text().ok();
+                
+                log::debug!("Setting clipboard text: '{}'", text);
+                if let Err(e) = clipboard.set_text(text) {
+                    log::error!("Failed to set clipboard text: {}", e);
+                    return false;
+                }
+                
+                // クリップボード設定後に少し待機
+                thread::sleep(Duration::from_millis(150));
+                
+                // CTRL+Vで貼り付ける
+                let paste_result = self.simulate_paste_simple();
+                
+                if !paste_result {
+                    log::error!("Failed to simulate paste operation");
+                    
+                    // クリップボードを元の状態に戻す (エラー無視)
+                    if let Some(original_text) = original_clipboard {
+                        let _ = clipboard.set_text(&original_text);
+                    }
+                    
+                    return false;
+                }
+                
+                // 操作完了後に少し待機
+                thread::sleep(Duration::from_millis(200));
+                
+                log::debug!("Replacement completed successfully: '{}'", text);
+                return true;
+            } else {
+                log::error!("Failed to access clipboard");
                 return false;
             }
-            
-            // 操作完了後に少し待機
-            thread::sleep(Duration::from_millis(200));
-            
-            log::debug!("Replacement completed successfully: '{}'", text);
-            return true;
-        } else {
-            log::error!("Failed to access clipboard");
-            return false;
+        });
+        
+        match clipboard_result {
+            Ok(result) => result,
+            Err(_) => {
+                log::error!("Panic occurred during clipboard operation");
+                false
+            }
         }
     }
     
@@ -171,71 +239,87 @@ impl ReplacementEngine {
         // バックスペース数をログに記録（デバッグ用）
         log::debug!("Simulating {} backspaces", count);
         
-        // 高リスクの長さに対する特別処理
-        let is_high_risk_length = count >= 5 && count <= 9;
+        // 安全のため、バックスペース数に上限を設ける
+        let safe_count = std::cmp::min(count, 20); // 最大20回に制限
+        if safe_count < count {
+            log::warn!("Limiting backspace count from {} to {}", count, safe_count);
+        }
         
-        // バックスペース処理前の待機時間を短縮 (高リスクの場合でも短く)
+        // 高リスクの長さに対する特別処理
+        let is_high_risk_length = safe_count >= 5 && safe_count <= 9;
+        
+        // バックスペース処理前の待機時間
         let initial_wait = if is_high_risk_length { 50 } else { 40 };
         thread::sleep(Duration::from_millis(initial_wait));
         
-        let mut success = true;
-        
-        // カーソル位置を安定させるためにバックスペースを丁寧に実行
-        for i in 0..count {
-            // バックスペースキーを押す
-            let mut key_down: INPUT = unsafe { std::mem::zeroed() };
-            key_down.r#type = INPUT_KEYBOARD;
-            key_down.Anonymous.ki = KEYBDINPUT {
-                wVk: VK_BACK,
-                wScan: 0,
-                dwFlags: Default::default(),
-                time: 0,
-                dwExtraInfo: 0,
-            };
-            
-            // バックスペースキーを離す
-            let mut key_up: INPUT = unsafe { std::mem::zeroed() };
-            key_up.r#type = INPUT_KEYBOARD;
-            key_up.Anonymous.ki = KEYBDINPUT {
-                wVk: VK_BACK,
-                wScan: 0,
-                dwFlags: KEYEVENTF_KEYUP,
-                time: 0,
-                dwExtraInfo: 0,
-            };
-            
-            // バックスペースを押下
-            let sent_down = unsafe {
-                SendInput(&[key_down], std::mem::size_of::<INPUT>() as i32)
-            };
-            
-            if sent_down != 1 {
-                log::error!("Failed to send backspace key down event for backspace {}", i + 1);
-                success = false;
+        // 例外処理を追加
+        let success = match std::panic::catch_unwind(|| {
+            // カーソル位置を安定させるためにバックスペースを丁寧に実行
+            for i in 0..safe_count {
+                // バックスペースキーを押す
+                let mut key_down: INPUT = unsafe { std::mem::zeroed() };
+                key_down.r#type = INPUT_KEYBOARD;
+                key_down.Anonymous.ki = KEYBDINPUT {
+                    wVk: VK_BACK,
+                    wScan: 0,
+                    dwFlags: Default::default(),
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                
+                // バックスペースキーを離す
+                let mut key_up: INPUT = unsafe { std::mem::zeroed() };
+                key_up.r#type = INPUT_KEYBOARD;
+                key_up.Anonymous.ki = KEYBDINPUT {
+                    wVk: VK_BACK,
+                    wScan: 0,
+                    dwFlags: KEYEVENTF_KEYUP,
+                    time: 0,
+                    dwExtraInfo: 0,
+                };
+                
+                // バックスペースを押下
+                let sent_down = unsafe {
+                    SendInput(&[key_down], std::mem::size_of::<INPUT>() as i32)
+                };
+                
+                if sent_down != 1 {
+                    log::error!("Failed to send backspace key down event for backspace {}", i + 1);
+                    return false;
+                }
+                
+                // キーの押下を確実に処理してもらうための待機時間
+                thread::sleep(Duration::from_millis(20));
+                
+                // バックスペースを解放
+                let sent_up = unsafe {
+                    SendInput(&[key_up], std::mem::size_of::<INPUT>() as i32)
+                };
+                
+                if sent_up != 1 {
+                    log::error!("Failed to send backspace key up event for backspace {}", i + 1);
+                    return false;
+                }
+                
+                // 次のバックスペース前の待機時間
+                thread::sleep(Duration::from_millis(20));
             }
             
-            // キーの押下を確実に処理してもらうための待機時間を短縮
-            thread::sleep(Duration::from_millis(15));
-            
-            // バックスペースを解放
-            let sent_up = unsafe {
-                SendInput(&[key_up], std::mem::size_of::<INPUT>() as i32)
-            };
-            
-            if sent_up != 1 {
-                log::error!("Failed to send backspace key up event for backspace {}", i + 1);
-                success = false;
+            // すべて成功
+            true
+        }) {
+            Ok(result) => {
+                log::debug!("Completed sending {} backspace events, success: {}", safe_count, result);
+                result
+            },
+            Err(_) => {
+                log::error!("Panic occurred during backspace simulation");
+                false
             }
-            
-            // 次のバックスペース前の待機時間を短縮
-            let wait_time = 20;
-            thread::sleep(Duration::from_millis(wait_time));
-        }
+        };
         
-        log::debug!("Completed sending {} backspace events, success: {}", count, success);
-        
-        // 最後の操作後の待機時間を短縮
-        let final_wait = if is_high_risk_length { 100 } else if count > 5 { 80 } else { 60 };
+        // 最後の操作後の待機時間
+        let final_wait = if is_high_risk_length { 100 } else if safe_count > 5 { 80 } else { 60 };
         thread::sleep(Duration::from_millis(final_wait));
         
         success

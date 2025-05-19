@@ -85,7 +85,7 @@ impl Default for Settings {
         
         snippets.push(Snippet::new(
             "Today's Date (YYYYMMDD)".to_string(),
-            "yyyymmdd".to_string(),
+            ".td".to_string(),
             "yyyyMMdd".to_string(), // 直接日付フォーマットを指定
             SnippetType::Dynamic,
             "Date".to_string(),
@@ -123,4 +123,4 @@ impl Default for Settings {
             open_window_hotkey: None,
         }
     }
-} 
+}
