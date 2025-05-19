@@ -113,14 +113,24 @@ impl ReplacementEngine {
         // 高リスクの長さに対する特別処理 (5-9文字)
         let is_high_risk_length = safe_length >= 5 && safe_length <= 9;
         
+        // 短いキーワードの場合は特別な処理
+        let is_short_keyword = safe_length <= 2;
+        
         // バックスペース処理の前に少し待機
-        let pre_backspace_wait = if is_high_risk_length { 300 } else { 200 };
+        // 短いキーワードの場合はより長く待機
+        let pre_backspace_wait = if is_short_keyword {
+            400 // 短いキーワードは長めに待機
+        } else if is_high_risk_length {
+            300
+        } else {
+            200
+        };
         thread::sleep(Duration::from_millis(pre_backspace_wait));
         
         // 例外処理を追加
         let backspace_result = std::panic::catch_unwind(|| {
             // キーワードを削除（キーワードの長さに基づいてバックスペース）
-            if !self.simulate_backspace(safe_length) {
+            if !self.simulate_backspace(safe_length, is_short_keyword) {
                 log::error!("Failed to simulate backspace for keyword of length {}", safe_length);
                 return false;
             }
@@ -143,7 +153,14 @@ impl ReplacementEngine {
         log::debug!("Backspace operation completed successfully, waiting before text input operation");
         
         // バックスペースと入力操作の間の遅延
-        let wait_time = if safe_length > 7 { 400 } else { 300 };
+        // 短いキーワードの場合はより長く待機
+        let wait_time = if is_short_keyword {
+            600 // 短いキーワードは長めに待機
+        } else if safe_length > 7 {
+            400
+        } else {
+            300
+        };
         thread::sleep(Duration::from_millis(wait_time));
         
         // テキストが短い場合は直接文字入力を試みる (より高い成功率)
@@ -226,7 +243,7 @@ impl ReplacementEngine {
     }
     
     /// バックスペースキーを自動で入力する
-    fn simulate_backspace(&self, count: usize) -> bool {
+    fn simulate_backspace(&self, count: usize, is_short_keyword: bool) -> bool {
         use windows::Win32::UI::Input::KeyboardAndMouse::{
             INPUT, INPUT_KEYBOARD, KEYBDINPUT, SendInput, KEYEVENTF_KEYUP, VK_BACK,
         };
@@ -249,7 +266,14 @@ impl ReplacementEngine {
         let is_high_risk_length = safe_count >= 5 && safe_count <= 9;
         
         // バックスペース処理前の待機時間
-        let initial_wait = if is_high_risk_length { 50 } else { 40 };
+        // 短いキーワードの場合はより長く待機
+        let initial_wait = if is_short_keyword {
+            100 // 短いキーワードは長めに待機
+        } else if is_high_risk_length {
+            50
+        } else {
+            40
+        };
         thread::sleep(Duration::from_millis(initial_wait));
         
         // 例外処理を追加
@@ -289,7 +313,9 @@ impl ReplacementEngine {
                 }
                 
                 // キーの押下を確実に処理してもらうための待機時間
-                thread::sleep(Duration::from_millis(20));
+                // 短いキーワードの場合はより長く待機
+                let key_down_wait = if is_short_keyword { 40 } else { 20 };
+                thread::sleep(Duration::from_millis(key_down_wait));
                 
                 // バックスペースを解放
                 let sent_up = unsafe {
@@ -302,7 +328,9 @@ impl ReplacementEngine {
                 }
                 
                 // 次のバックスペース前の待機時間
-                thread::sleep(Duration::from_millis(20));
+                // 短いキーワードの場合はより長く待機
+                let between_backspace_wait = if is_short_keyword { 50 } else { 20 };
+                thread::sleep(Duration::from_millis(between_backspace_wait));
             }
             
             // すべて成功
@@ -319,7 +347,16 @@ impl ReplacementEngine {
         };
         
         // 最後の操作後の待機時間
-        let final_wait = if is_high_risk_length { 100 } else if safe_count > 5 { 80 } else { 60 };
+        // 短いキーワードの場合はより長く待機
+        let final_wait = if is_short_keyword {
+            200 // 短いキーワードは長めに待機
+        } else if is_high_risk_length {
+            100
+        } else if safe_count > 5 {
+            80
+        } else {
+            60
+        };
         thread::sleep(Duration::from_millis(final_wait));
         
         success
@@ -431,6 +468,15 @@ impl ReplacementEngine {
             thread::sleep(Duration::from_millis(100));
         }
         
+        // 短いテキストの場合は特に慎重に処理
+        let is_short_text = text.len() <= 3;
+        let char_delay = if is_short_text { 30 } else { 15 };
+        
+        // 入力前に少し待機（特に短いテキストの場合）
+        if is_short_text {
+            thread::sleep(Duration::from_millis(100));
+        }
+        
         for c in text.chars() {
             // キーダウン入力を表すINPUT構造体を作成
             let mut input_down: INPUT = unsafe { std::mem::zeroed() };
@@ -469,7 +515,7 @@ impl ReplacementEngine {
             }
             
             // キーダウンとキーアップの間に小さな遅延
-            thread::sleep(Duration::from_millis(10));
+            thread::sleep(Duration::from_millis(char_delay));
             
             // キーアップ入力を送信
             let sent_up = unsafe {
@@ -486,7 +532,8 @@ impl ReplacementEngine {
             }
             
             // 文字間に小さな遅延
-            thread::sleep(Duration::from_millis(15));
+            let between_char_delay = if is_short_text { 30 } else { 15 };
+            thread::sleep(Duration::from_millis(between_char_delay));
         }
         
         // IMEの状態を元に戻す
@@ -494,6 +541,11 @@ impl ReplacementEngine {
             log::debug!("Restoring IME state");
             thread::sleep(Duration::from_millis(50));
             self.toggle_ime(true);
+        }
+        
+        // 入力後に少し待機（特に短いテキストの場合）
+        if is_short_text {
+            thread::sleep(Duration::from_millis(100));
         }
         
         log::debug!("Direct char input completed successfully");
