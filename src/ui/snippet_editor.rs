@@ -1,6 +1,18 @@
 use egui::{self, Ui};
 use crate::config::settings::{Snippet, SnippetType};
 
+/// キーワードのバリデーション
+/// 
+/// # 引数
+/// * `keyword` - バリデーション対象のキーワード
+/// 
+/// # 戻り値
+/// キーワードが有効かどうか
+fn validate_keyword(keyword: &str) -> bool {
+    // 特殊文字のチェック
+    !keyword.contains('=') && !keyword.contains(';') && !keyword.contains(',')
+}
+
 /// スニペットエディタを描画する
 /// 
 /// # 引数
@@ -19,7 +31,25 @@ pub fn render_snippet_editor(ui: &mut Ui, snippet: &mut Snippet) -> bool {
     
     ui.horizontal(|ui| {
         ui.label("Keyword:");
-        edited |= ui.text_edit_singleline(&mut snippet.keyword).changed();
+        let response = ui.text_edit_singleline(&mut snippet.keyword);
+        edited |= response.changed();
+        
+        // キーワードが変更された場合、バリデーションを行う
+        if response.changed() {
+            if !validate_keyword(&snippet.keyword) {
+                ui.label("⚠ Keywords should not contain special characters (=, ;, ,)");
+                
+                // 特殊文字を自動的に置き換える
+                let safe_keyword = snippet.keyword.replace('=', "_")
+                                            .replace(';', "_")
+                                            .replace(',', "_");
+                
+                if safe_keyword != snippet.keyword {
+                    snippet.keyword = safe_keyword;
+                    ui.label("Special characters have been replaced with '_'");
+                }
+            }
+        }
     });
     
     ui.horizontal(|ui| {
@@ -84,4 +114,4 @@ pub fn render_snippet_editor(ui: &mut Ui, snippet: &mut Snippet) -> bool {
     });
     
     edited
-} 
+}

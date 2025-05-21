@@ -40,6 +40,15 @@ impl ConfigManager {
                     "テンプレート" => snippet.category = "Templates".to_string(),
                     _ => {}
                 }
+                
+                // 特殊文字を含むキーワードを安全な形式に変換
+                if snippet.keyword.contains('=') || snippet.keyword.contains(';') || snippet.keyword.contains(',') {
+                    let original = snippet.keyword.clone();
+                    snippet.keyword = snippet.keyword.replace('=', "_")
+                                              .replace(';', "_")
+                                              .replace(',', "_");
+                    log::info!("Sanitized keyword from '{}' to '{}'", original, snippet.keyword);
+                }
             }
             
             loaded_settings
@@ -62,7 +71,18 @@ impl ConfigManager {
     }
     
     /// 設定を変更する
-    pub fn update_settings(&mut self, settings: Settings) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn update_settings(&mut self, mut settings: Settings) -> Result<(), Box<dyn std::error::Error>> {
+        // 保存前に特殊文字を含むキーワードを安全な形式に変換
+        for snippet in &mut settings.snippets {
+            if snippet.keyword.contains('=') || snippet.keyword.contains(';') || snippet.keyword.contains(',') {
+                let original = snippet.keyword.clone();
+                snippet.keyword = snippet.keyword.replace('=', "_")
+                                          .replace(';', "_")
+                                          .replace(',', "_");
+                log::info!("Sanitized keyword from '{}' to '{}'", original, snippet.keyword);
+            }
+        }
+        
         self.settings = settings;
         self.save()
     }
@@ -98,4 +118,4 @@ impl ConfigManager {
             .join("swifttype");
         Ok(config_dir)
     }
-} 
+}

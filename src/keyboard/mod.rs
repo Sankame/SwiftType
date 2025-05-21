@@ -59,8 +59,18 @@ impl KeyboardState {
             return;
         }
         
-        self.buffer.push(c);
-        log::trace!("Added character '{}' to buffer, current buffer: '{}'", c, self.get_keyword_candidate());
+        // 特殊文字の場合は特別な処理を行う
+        // 問題を引き起こす可能性のある特殊文字を安全な文字に置き換える
+        let safe_char = match c {
+            '=' => '_', // '=' を '_' に置き換える
+            ';' => '_', // ';' を '_' に置き換える
+            ',' => '_', // ',' を '_' に置き換える
+            _ => c,
+        };
+        
+        self.buffer.push(safe_char);
+        log::trace!("Added character '{}' to buffer (stored as '{}'), current buffer: '{}'", 
+                   c, safe_char, self.get_keyword_candidate());
         
         // バッファサイズを制限
         if self.buffer.len() > self.buffer_size {
@@ -120,4 +130,4 @@ impl KeyboardState {
         log::debug!("Keyword replacement completed, clearing buffer");
         self.clear_buffer();
     }
-} 
+}
