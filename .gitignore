@@ -2,7 +2,7 @@
 /target/
 **/*.rs.bk
 *.pdb
-Cargo.lock
+# Cargo.lock - バイナリアプリケーションなのでバージョン管理に含める
 
 # ビルド関連
 /debug/
